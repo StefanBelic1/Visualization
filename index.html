@@ -9,7 +9,7 @@
     body { font-family: Arial, sans-serif; margin: 20px; background: #f9fafb; color: #1f2937; }
     h1 { color: #1e40af; text-align: center; }
     .container { max-width: 1400px; margin: 0 auto; }
-    .controls { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
+    .controls { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; align-items: center; flex-wrap: wrap; }
     .chart-container { display: flex; flex-direction: row; gap: 20px; justify-content: flex-start; align-items: flex-start; }
     .chart { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .chart h2 { text-align: center; }
@@ -19,11 +19,40 @@
     #pieChart { flex: 0 0 300px; min-width: 300px; max-width: 300px; }
     svg { width: 100%; height: auto; }
     .tooltip { position: absolute; background: #1f2937; color: #fff; padding: 8px; border-radius: 4px; font-size: 12px; pointer-events: none; }
-    button, select { padding: 8px 16px; background: #1e40af; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-    button:hover, select:hover { background: #1e3a8a; }
+    button { padding: 8px 16px; background: #1e40af; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #1e3a8a; }
     .legend { font-size: 12px; margin-top: 10px; text-align: center; }
     .legend-item { display: inline-block; margin-right: 20px; }
     .legend-item span { display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: middle; }
+  
+    #yearSlider { width: 200px; cursor: pointer; }
+    #yearLabel { font-size: 14px; color: #1f2937; margin-left: 10px; }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #1e40af;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      height: 6px;
+      background: #d1d5db;
+      border-radius: 3px;
+    }
+   
+    .sex-icon { cursor: pointer; font-size: 24px; position: relative; display: inline-block; }
+    .sex-icon svg { width: 50px; height: 50px; }
+    .sex-icon.males circle { fill: none; }
+    .sex-icon.females circle { fill: none; }
+    .sex-icon.total circle { fill: none; }
+    .sex-icon.males:hover circle, .sex-icon.males.selected circle { fill: #1e40af; opacity: 0.7; }
+    .sex-icon.females:hover circle, .sex-icon.females.selected circle { fill: #dc2626; opacity: 0.7; }
+    .sex-icon.total:hover circle, .sex-icon.total.selected circle { fill: #6b7280; opacity: 0.7; }
+    .sex-icon.males text, .sex-icon.females text { font-weight: bold; }
+    .sex-icon.total text { font-weight: normal; }
+   
+    .sort-button { padding: 8px; font-size: 23px; }
   </style>
 </head>
 <body>
@@ -31,16 +60,34 @@
     <h1>Stopa nezaposlenosti mladih u Europi</h1>
     <div class="controls">
       <button id="playPause">Pokreni</button>
-      <select id="yearSelect"></select>
-      <select id="sexSelect">
-        <option value="Total">Svi</option>
-        <option value="Males">Muškarci</option>
-        <option value="Females">Žene</option>
-      </select>
-      <select id="sortSelect">
-        <option value="desc">Sortiraj: Visoko → Nisko</option>
-        <option value="asc">Sortiraj: Nisko → Visoko</option>
-      </select>
+      <div>
+        <input type="range" id="yearSlider" />
+        <span id="yearLabel"></span>
+      </div>
+      <div class="sex-icons">
+        <span class="sex-icon males" data-sex="Males" title="Muškarci">
+          <svg viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="14" fill="none" />
+            <text x="16" y="22" text-anchor="middle" font-size="16">♂</text>
+          </svg>
+        </span>
+        <span class="sex-icon total" data-sex="Total" title="Svi">
+          <svg viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="14" fill="none" />
+            <text x="16" y="22" text-anchor="middle" font-size="16">⚤</text>
+          </svg>
+        </span>
+        <span class="sex-icon females" data-sex="Females" title="Žene">
+          <svg viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="14" fill="none" />
+            <text x="16" y="22" text-anchor="middle" font-size="16">♀</text>
+          </svg>
+        </span>
+      </div>
+      <div class="sort-buttons">
+        <button class="sort-button" id="sortDesc" title="Visoko → Nisko">↓</button>
+        <button class="sort-button" id="sortAsc" title="Nisko → Visoko">↑</button>
+      </div>
     </div>
     <div class="chart-container">
       <div class="chart" id="mapChart">
@@ -95,212 +142,228 @@
       const mapSvg = d3.select("#mapSvg").attr("viewBox", `0 0 ${width} ${height}`);
       const tooltip = d3.select("body").append("div").attr("class", "tooltip").style("opacity", 0);
 
-      d3.select("#yearSelect").selectAll("option")
-        .data(years).enter().append("option")
-        .attr("value", d => d).text(d => d);
+      
+      const slider = d3.select("#yearSlider")
+        .attr("min", years[0])
+        .attr("max", years[years.length - 1])
+        .attr("value", years[0])
+        .attr("step", 1);
+      const yearLabel = d3.select("#yearLabel").text(years[0]);
 
       let currentYear = years[0];
       let currentSex = "Total";
       let sortOrder = "desc";
       let selectedCountry = null;
 
-      d3.select("#yearSelect").property("value", currentYear);
+      
+      d3.select(".sex-icon.total").classed("selected", true);
 
       function updatePieChart() {
-  const svg = d3.select("#pieSvg");
-  svg.selectAll("*").remove();
+        const svg = d3.select("#pieSvg");
+        svg.selectAll("*").remove();
 
-  const width = 300;
-  const height = 300;
-  const radius = Math.min(width, height) / 2 - 40;
-  svg.attr("viewBox", `0 0 ${width} ${height}`);
-  const g = svg.append("g").attr("transform", `translate(${width / 2},${height / 2})`);
+        const width = 300;
+        const height = 300;
+        const radius = Math.min(width, height) / 2 - 40;
+        svg.attr("viewBox", `0 0 ${width} ${height}`);
+        const g = svg.append("g").attr("transform", `translate(${width / 2},${height / 2})`);
 
-  let pieData;
-  if (selectedCountry) {
-    const countryData = cleanedData.filter(d => d.country === selectedCountry && d.year === currentYear && (d.sex === "Males" || d.sex === "Females"));
-    pieData = [
-      { sex: "Males", unemploymentRate: countryData.find(d => d.sex === "Males")?.unemploymentRate || 0 },
-      { sex: "Females", unemploymentRate: countryData.find(d => d.sex === "Females")?.unemploymentRate || 0 }
-    ];
-  } else {
-    const malesData = cleanedData.filter(d => d.year === currentYear && d.sex === "Males");
-    const femalesData = cleanedData.filter(d => d.year === currentYear && d.sex === "Females");
-    const avgMales = malesData.length ? d3.mean(malesData, d => d.unemploymentRate) : 0;
-    const avgFemales = femalesData.length ? d3.mean(femalesData, d => d.unemploymentRate) : 0;
-    pieData = [
-      { sex: "Males", unemploymentRate: avgMales },
-      { sex: "Females", unemploymentRate: avgFemales }
-    ];
-  }
+        let pieData;
+        if (selectedCountry) {
+          const countryData = cleanedData.filter(d => d.country === selectedCountry && d.year === currentYear && (d.sex === "Males" || d.sex === "Females"));
+          pieData = [
+            { sex: "Males", unemploymentRate: countryData.find(d => d.sex === "Males")?.unemploymentRate || 0 },
+            { sex: "Females", unemploymentRate: countryData.find(d => d.sex === "Females")?.unemploymentRate || 0 }
+          ];
+        } else {
+          const malesData = cleanedData.filter(d => d.year === currentYear && d.sex === "Males");
+          const femalesData = cleanedData.filter(d => d.year === currentYear && d.sex === "Females");
+          const avgMales = malesData.length ? d3.mean(malesData, d => d.unemploymentRate) : 0;
+          const avgFemales = femalesData.length ? d3.mean(femalesData, d => d.unemploymentRate) : 0;
+          pieData = [
+            { sex: "Males", unemploymentRate: avgMales },
+            { sex: "Females", unemploymentRate: avgFemales }
+          ];
+        }
 
-  const total = d3.sum(pieData, d => d.unemploymentRate);
-  if (total === 0) {
-    g.append("text")
-      .attr("text-anchor", "middle")
-      .attr("dy", ".3em")
-      .text("Nema podataka");
-    return;
-  }
+        const total = d3.sum(pieData, d => d.unemploymentRate);
+        if (total === 0) {
+          g.append("text")
+            .attr("text-anchor", "middle")
+            .attr("dy", ".3em")
+            .text("Nema podataka");
+          return;
+        }
 
-  const pie = d3.pie().value(d => d.unemploymentRate).sort(null);
-  const arc = d3.arc().innerRadius(0).outerRadius(radius);
-  const arcStart = d3.arc().innerRadius(0).outerRadius(0);
+        const pie = d3.pie().value(d => d.unemploymentRate).sort(null);
+        const arc = d3.arc().innerRadius(0).outerRadius(radius);
+        const arcHover = d3.arc().innerRadius(0).outerRadius(radius * 1.1); 
+        const arcStart = d3.arc().innerRadius(0).outerRadius(0);
 
-  const arcs = g.selectAll("arc")
-    .data(pie(pieData))
-    .enter()
-    .append("g");
+        const arcs = g.selectAll("arc")
+          .data(pie(pieData))
+          .enter()
+          .append("g");
 
-  arcs.append("path")
-    .attr("d", arcStart)
-    .attr("fill", d => d.data.sex === "Males" ? "#1e40af" : "#dc2626")
-    .on("mouseover", (event, d) => {
-      tooltip.transition().duration(200).style("opacity", 0.9);
-      const percentage = ((d.data.unemploymentRate / total) * 100).toFixed(1);
-      tooltip.html(`${d.data.sex === "Males" ? "Muškarci" : "Žene"}: ${percentage}%`)
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 28) + "px");
-    })
-    .on("mouseout", () => tooltip.transition().duration(500).style("opacity", 0))
-    .transition()
-    .duration(1000)
-    .ease(d3.easeCubicOut)
-    .attrTween("d", function(d) {
-      const interpolate = d3.interpolate({ startAngle: d.startAngle, endAngle: d.startAngle }, d);
-      return t => arc(interpolate(t));
-    });
+        arcs.append("path")
+          .attr("d", arcStart)
+          .attr("fill", d => d.data.sex === "Males" ? "#1e40af" : "#dc2626")
+          .on("mouseover", function(event, d) {
+            tooltip.transition().duration(200).style("opacity", 0.9);
+            const percentage = ((d.data.unemploymentRate / total) * 100).toFixed(1);
+            tooltip.html(`${d.data.sex === "Males" ? "Muškarci" : "Žene"}: ${percentage}%`)
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 28) + "px");
+            d3.select(this)
+              .transition()
+              .duration(200)
+              .attr("d", arcHover); 
+          })
+          .on("mouseout", function() {
+            tooltip.transition().duration(500).style("opacity", 0);
+            d3.select(this)
+              .transition()
+              .duration(200)
+              .attr("d", arc); 
+          })
+          .transition()
+          .duration(1000)
+          .ease(d3.easeCubicOut)
+          .attrTween("d", function(d) {
+            const interpolate = d3.interpolate({ startAngle: d.startAngle, endAngle: d.startAngle }, d);
+            return t => arc(interpolate(t));
+          });
 
-  arcs.append("text")
-    .attr("transform", d => `translate(${arc.centroid(d)})`)
-    .attr("text-anchor", "middle")
-    .style("opacity", 0)
-    .style("fill", "#fff")
-    .style("font-weight", "bold")
-    .text(d => {
-      const percentage = ((d.data.unemploymentRate / total) * 100).toFixed(1);
-      return percentage > 5 ? `${percentage}%` : "";
-    })
-    .transition()
-    .duration(1000)
-    .delay(500)
-    .ease(d3.easeCubicOut)
-    .style("opacity", 1);
+        arcs.append("text")
+          .attr("transform", d => `translate(${arc.centroid(d)})`)
+          .attr("text-anchor", "middle")
+          .style("opacity", 0)
+          .style("fill", "#fff")
+          .style("font-weight", "bold")
+          .text(d => {
+            const percentage = ((d.data.unemploymentRate / total) * 100).toFixed(1);
+            return percentage > 5 ? `${percentage}%` : "";
+          })
+          .transition()
+          .duration(1000)
+          .delay(500)
+          .ease(d3.easeCubicOut)
+          .style("opacity", 1);
 }
 
-   function updateLineChart() {
-  if (!selectedCountry) return;
-  const svg = d3.select("#lineSvg");
-  svg.selectAll("*").remove();
+      function updateLineChart() {
+        if (!selectedCountry) return;
+        const svg = d3.select("#lineSvg");
+        svg.selectAll("*").remove();
 
-  const data = cleanedData.filter(d => d.country === selectedCountry && d.sex === currentSex);
-  const margin = { top: 20, right: 20, bottom: 70, left: 70 };
-  const w = 800 - margin.left - margin.right;
-  const h = 500 - margin.top - margin.bottom;
-  svg.attr("viewBox", `0 0 800 ${500 + 20}`);
-  const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+        const data = cleanedData.filter(d => d.country === selectedCountry && d.sex === currentSex);
+        const margin = { top: 20, right: 20, bottom: 70, left: 70 };
+        const w = 800 - margin.left - margin.right;
+        const h = 500 - margin.top - margin.bottom;
+        svg.attr("viewBox", `0 0 800 ${500 + 20}`);
+        const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-  const x = d3.scaleLinear().domain(d3.extent(data, d => d.year)).range([0, w]);
-  const y = d3.scaleLinear().domain([0, d3.max(data, d => d.unemploymentRate)]).range([h, 0]);
+        const x = d3.scaleLinear().domain(d3.extent(data, d => d.year)).range([0, w]);
+        const y = d3.scaleLinear().domain([0, d3.max(data, d => d.unemploymentRate)]).range([h, 0]);
 
-  g.append("g")
-    .attr("transform", `translate(0,${h})`)
-    .call(d3.axisBottom(x).tickFormat(d3.format("d")))
-    .selectAll("text")
-    .style("text-anchor", "end")
-    .style("font-size", "14px")
-    .style("font-weight", "bold")
-    .attr("dx", "-0.8em")
-    .attr("dy", "0.15em")
-    .attr("transform", "rotate(-45)");
+        g.append("g")
+          .attr("transform", `translate(0,${h})`)
+          .call(d3.axisBottom(x).tickFormat(d3.format("d")))
+          .selectAll("text")
+          .style("text-anchor", "end")
+          .style("font-size", "14px")
+          .style("font-weight", "bold")
+          .attr("dx", "-0.8em")
+          .attr("dy", "0.15em")
+          .attr("transform", "rotate(-45)");
 
-  g.append("g")
-    .call(d3.axisLeft(y))
-    .selectAll("text")
-    .style("font-size", "14px")
-    .style("font-weight", "bold");
+        g.append("g")
+          .call(d3.axisLeft(y))
+          .selectAll("text")
+          .style("font-size", "14px")
+          .style("font-weight", "bold");
 
-  const line = d3.line().x(d => x(d.year)).y(d => y(d.unemploymentRate));
-  const pathLine = g.append("path")
-    .datum(data)
-    .attr("fill", "none")
-    .attr("stroke", "steelblue")
-    .attr("stroke-width", 2)
-    .attr("d", line);
+        const line = d3.line().x(d => x(d.year)).y(d => y(d.unemploymentRate));
+        const pathLine = g.append("path")
+          .datum(data)
+          .attr("fill", "none")
+          .attr("stroke", "steelblue")
+          .attr("stroke-width", 2)
+          .attr("d", line);
 
-  const totalLength = pathLine.node().getTotalLength();
+        const totalLength = pathLine.node().getTotalLength();
 
-  pathLine
-    .attr("stroke-dasharray", `${totalLength} ${totalLength}`)
-    .attr("stroke-dashoffset", totalLength)
-    .transition()
-    .duration(1000)
-    .ease(d3.easeLinear)
-    .attr("stroke-dashoffset", 0);
+        pathLine
+          .attr("stroke-dasharray", `${totalLength} ${totalLength}`)
+          .attr("stroke-dashoffset", totalLength)
+          .transition()
+          .duration(1000)
+          .ease(d3.easeLinear)
+          .attr("stroke-dashoffset", 0);
 
-  g.selectAll("dot")
-    .data(data)
-    .enter()
-    .append("circle")
-    .attr("cx", d => x(d.year))
-    .attr("cy", d => y(d.unemploymentRate))
-    .attr("r", 6)
-    .attr("fill", "steelblue")
-    .on("mouseover", (event, d) => {
-      tooltip.transition().duration(200).style("opacity", 0.9);
-      tooltip.html(`Godina: ${d.year}<br>Stopa: ${d.unemploymentRate.toFixed(1)}%`)
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 28) + "px");
-    })
-    .on("mouseout", () => tooltip.transition().duration(500).style("opacity", 0));
-}
+        g.selectAll("dot")
+          .data(data)
+          .enter()
+          .append("circle")
+          .attr("cx", d => x(d.year))
+          .attr("cy", d => y(d.unemploymentRate))
+          .attr("r", 6)
+          .attr("fill", "steelblue")
+          .on("mouseover", (event, d) => {
+            tooltip.transition().duration(200).style("opacity", 0.9);
+            tooltip.html(`Godina: ${d.year}<br>Stopa: ${d.unemploymentRate.toFixed(1)}%`)
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 28) + "px");
+          })
+          .on("mouseout", () => tooltip.transition().duration(500).style("opacity", 0));
+      }
 
-     function updateBarChart() {
-  const svg = d3.select("#barSvg");
-  svg.selectAll("*").remove();
+      function updateBarChart() {
+        const svg = d3.select("#barSvg");
+        svg.selectAll("*").remove();
 
-  const data = cleanedData.filter(d => d.year === currentYear && d.sex === currentSex)
-    .sort((a, b) => sortOrder === "desc" ? b.unemploymentRate - a.unemploymentRate : a.unemploymentRate - b.unemploymentRate)
-    .slice(0, 5);
+        const data = cleanedData.filter(d => d.year === currentYear && d.sex === currentSex)
+          .sort((a, b) => sortOrder === "desc" ? b.unemploymentRate - a.unemploymentRate : a.unemploymentRate - b.unemploymentRate)
+          .slice(0, 5);
 
-  const margin = { top: 20, right: 20, bottom: 50, left: 120 };
-  const w = 400 - margin.left - margin.right;
-  const h = 300 - margin.top - margin.bottom;
-  svg.attr("viewBox", `0 0 400 ${300 + 20}`);
-  const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+        const margin = { top: 20, right: 20, bottom: 50, left: 120 };
+        const w = 400 - margin.left - margin.right;
+        const h = 300 - margin.top - margin.bottom;
+        svg.attr("viewBox", `0 0 400 ${300 + 20}`);
+        const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-  const x = d3.scaleLinear().domain([0, d3.max(data, d => d.unemploymentRate)]).range([0, w]);
-  const y = d3.scaleBand().domain(data.map(d => d.country)).range([0, h]).padding(0.1);
+        const x = d3.scaleLinear().domain([0, d3.max(data, d => d.unemploymentRate)]).range([0, w]);
+        const y = d3.scaleBand().domain(data.map(d => d.country)).range([0, h]).padding(0.1);
 
-  g.append("g")
-    .call(d3.axisLeft(y))
-    .selectAll("text")
-    .style("font-size", "12px");
+        g.append("g")
+          .call(d3.axisLeft(y))
+          .selectAll("text")
+          .style("font-size", "12px");
 
-  g.append("g")
-    .attr("transform", `translate(0,${h})`)
-    .call(d3.axisBottom(x));
+        g.append("g")
+          .attr("transform", `translate(0,${h})`)
+          .call(d3.axisBottom(x));
 
-  g.selectAll("rect")
-    .data(data)
-    .enter()
-    .append("rect")
-    .attr("y", d => y(d.country))
-    .attr("width", 0) 
-    .attr("height", y.bandwidth())
-    .attr("fill", d => d.country === selectedCountry ? "#dc2626" : "#1e40af")
-    .on("mouseover", (event, d) => {
-      tooltip.transition().duration(200).style("opacity", 0.9);
-      tooltip.html(`${d.country}: ${d.unemploymentRate.toFixed(1)}%`)
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 28) + "px");
-    })
-    .on("mouseout", () => tooltip.transition().duration(500).style("opacity", 0))
-    .transition()
-    .duration(1000)
-    .ease(d3.easeCubicOut)
-    .attr("width", d => x(d.unemploymentRate)); 
-}
+        g.selectAll("rect")
+          .data(data)
+          .enter()
+          .append("rect")
+          .attr("y", d => y(d.country))
+          .attr("width", 0)
+          .attr("height", y.bandwidth())
+          .attr("fill", d => d.country === selectedCountry ? "#dc2626" : "#1e40af")
+          .on("mouseover", (event, d) => {
+            tooltip.transition().duration(200).style("opacity", 0.9);
+            tooltip.html(`${d.country}: ${d.unemploymentRate.toFixed(1)}%`)
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 28) + "px");
+          })
+          .on("mouseout", () => tooltip.transition().duration(500).style("opacity", 0))
+          .transition()
+          .duration(1000)
+          .ease(d3.easeCubicOut)
+          .attr("width", d => x(d.unemploymentRate));
+      }
 
       function updateMap() {
         const yearData = cleanedData.filter(d => d.year === currentYear && d.sex === currentSex);
@@ -359,8 +422,11 @@
 
       function animate() {
         if (isPlaying) {
-          currentYear = years[(years.indexOf(currentYear) + 1) % years.length];
-          d3.select("#yearSelect").property("value", currentYear);
+          const currentIndex = years.indexOf(currentYear);
+          const nextIndex = (currentIndex + 1) % years.length;
+          currentYear = years[nextIndex];
+          slider.property("value", currentYear);
+          yearLabel.text(currentYear);
           updateMap();
           if (selectedCountry) {
             updateLineChart();
@@ -377,8 +443,10 @@
       });
       mapSvg.call(zoom);
 
-      d3.select("#yearSelect").on("change", function () {
+      
+      slider.on("input", function() {
         currentYear = +this.value;
+        yearLabel.text(currentYear);
         updateMap();
         if (selectedCountry) {
           updateLineChart();
@@ -388,8 +456,11 @@
         updatePieChart();
       });
 
-      d3.select("#sexSelect").on("change", function () {
-        currentSex = this.value;
+      
+      d3.selectAll(".sex-icon").on("click", function() {
+        currentSex = d3.select(this).attr("data-sex");
+        d3.selectAll(".sex-icon").classed("selected", false);
+        d3.select(this).classed("selected", true);
         updateMap();
         if (selectedCountry) {
           updateLineChart();
@@ -399,8 +470,14 @@
         updatePieChart();
       });
 
-      d3.select("#sortSelect").on("change", function () {
-        sortOrder = this.value;
+      
+      d3.select("#sortDesc").on("click", function() {
+        sortOrder = "desc";
+        updateBarChart();
+      });
+
+      d3.select("#sortAsc").on("click", function() {
+        sortOrder = "asc";
         updateBarChart();
       });
 
@@ -408,7 +485,7 @@
         isPlaying = !isPlaying;
         this.textContent = isPlaying ? "Pauza" : "Pokreni";
         if (isPlaying) {
-          animationInterval = setInterval(animate, 2500);
+          animationInterval = setInterval(animate, 1500);
         } else {
           clearInterval(animationInterval);
         }
