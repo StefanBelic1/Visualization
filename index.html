@@ -6,27 +6,123 @@
   <title>Stopa nezaposlenosti mladih u Europi</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f9fafb; color: #1f2937; }
-    h1 { color: #1e40af; text-align: center; }
-    .container { max-width: 1400px; margin: 0 auto; }
-    .controls { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; align-items: center; flex-wrap: wrap; }
-    .chart-container { display: flex; flex-direction: row; gap: 20px; justify-content: flex-start; align-items: flex-start; }
-    .chart { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .chart h2 { text-align: center; }
-    #mapChart { flex: 0 0 800px; max-width: 800px; margin-left: -100px; }
-    #lineChart { flex: 0 0 400px; min-width: 500px; max-width: 800px; display: none; }
-    #barChart { flex: 0 0 400px; min-width: 400px; max-width: 400px; }
-    #pieChart { flex: 0 0 300px; min-width: 300px; max-width: 300px; }
-    svg { width: 100%; height: auto; }
-    .tooltip { position: absolute; background: #1f2937; color: #fff; padding: 8px; border-radius: 4px; font-size: 12px; pointer-events: none; }
-    button { padding: 8px 16px; background: #1e40af; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-    button:hover { background: #1e3a8a; }
-    .legend { font-size: 12px; margin-top: 10px; text-align: center; }
-    .legend-item { display: inline-block; margin-right: 20px; }
-    .legend-item span { display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: middle; }
-  
-    #yearSlider { width: 200px; cursor: pointer; }
-    #yearLabel { font-size: 14px; color: #1f2937; margin-left: 10px; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f9fafb;
+      color: #1f2937;
+    }
+    h1 {
+      color: #1e40af;
+      text-align: center;
+      font-size: clamp(1.5rem, 5vw, 2rem);
+    }
+    .container {
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
+      box-sizing: border-box;
+      padding: 0 10px;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .chart-container {
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .chart {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 800px;
+      box-sizing: border-box;
+    }
+    .chart h2 {
+      text-align: center;
+      font-size: clamp(1rem, 3vw, 1.2rem);
+    }
+    #mapChart {
+      flex: 1;
+      max-width: 800px;
+      min-width: 300px;
+    }
+    #lineChart {
+      flex: 1;
+      min-width: 300px;
+      max-width: 600px;
+      display: none;
+    }
+    #barChart {
+      flex: 1;
+      min-width: 300px;
+      max-width: 400px;
+    }
+    #pieChart {
+      flex: 1;
+      min-width: 250px;
+      max-width: 300px;
+    }
+    svg {
+      width: 100%;
+      height: auto;
+    }
+    .tooltip {
+      position: absolute;
+      background: #1f2937;
+      color: #fff;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      pointer-events: none;
+    }
+    button {
+      padding: 8px 16px;
+      background: #1e40af;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #1e3a8a;
+    }
+    .legend {
+      font-size: 12px;
+      margin-top: 10px;
+      text-align: center;
+    }
+    .legend-item {
+      display: inline-block;
+      margin-right: 20px;
+    }
+    .legend-item span {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+    #yearSlider {
+      width: 200px;
+      cursor: pointer;
+    }
+    #yearLabel {
+      font-size: 14px;
+      color: #1f2937;
+      margin-left: 10px;
+    }
     input[type=range]::-webkit-slider-thumb {
       -webkit-appearance: none;
       width: 16px;
@@ -40,19 +136,95 @@
       background: #d1d5db;
       border-radius: 3px;
     }
-   
-    .sex-icon { cursor: pointer; font-size: 24px; position: relative; display: inline-block; }
-    .sex-icon svg { width: 50px; height: 50px; }
-    .sex-icon.males circle { fill: none; }
-    .sex-icon.females circle { fill: none; }
-    .sex-icon.total circle { fill: none; }
-    .sex-icon.males:hover circle, .sex-icon.males.selected circle { fill: #1e40af; opacity: 0.7; }
-    .sex-icon.females:hover circle, .sex-icon.females.selected circle { fill: #dc2626; opacity: 0.7; }
-    .sex-icon.total:hover circle, .sex-icon.total.selected circle { fill: #6b7280; opacity: 0.7; }
-    .sex-icon.males text, .sex-icon.females text { font-weight: bold; }
-    .sex-icon.total text { font-weight: normal; }
-   
-    .sort-button { padding: 8px; font-size: 23px; }
+    .sex-icon {
+      cursor: pointer;
+      font-size: 24px;
+      position: relative;
+      display: inline-block;
+    }
+    .sex-icon svg {
+      width: 50px;
+      height: 50px;
+    }
+    .sex-icon.males circle {
+      fill: none;
+    }
+    .sex-icon.females circle {
+      fill: none;
+    }
+    .sex-icon.total circle {
+      fill: none;
+    }
+    .sex-icon.males:hover circle, .sex-icon.males.selected circle {
+      fill: #1e40af;
+      opacity: 0.7;
+    }
+    .sex-icon.females:hover circle, .sex-icon.females.selected circle {
+      fill: #dc2626;
+      opacity: 0.7;
+    }
+    .sex-icon.total:hover circle, .sex-icon.total.selected circle {
+      fill: #6b7280;
+      opacity: 0.7;
+    }
+    .sex-icon.males text, .sex-icon.females text {
+      font-weight: bold;
+    }
+    .sex-icon.total text {
+      font-weight: normal;
+    }
+    .sort-button {
+      padding: 8px;
+      font-size: 23px;
+    }
+
+    
+    @media (max-width: 900px) {
+      .chart-container {
+        flex-direction: column;
+        align-items: center;
+      }
+      .chart {
+        max-width: 100%;
+        min-width: 100%;
+      }
+      #mapChart, #lineChart, #barChart, #pieChart {
+        max-width: 100%;
+        min-width: 100%;
+      }
+      #yearSlider {
+        width: 150px;
+      }
+      .sex-icon svg {
+        width: 40px;
+        height: 40px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .controls {
+        flex-direction: column;
+        gap: 15px;
+      }
+      #yearSlider {
+        width: 100%;
+        max-width: 200px;
+      }
+      h1 {
+        font-size: clamp(1.2rem, 4vw, 1.5rem);
+      }
+      .chart h2 {
+        font-size: clamp(0.9rem, 2.5vw, 1rem);
+      }
+      .sex-icon svg {
+        width: 35px;
+        height: 35px;
+      }
+      .sort-button {
+        font-size: 18px;
+        padding: 6px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -142,7 +314,6 @@
       const mapSvg = d3.select("#mapSvg").attr("viewBox", `0 0 ${width} ${height}`);
       const tooltip = d3.select("body").append("div").attr("class", "tooltip").style("opacity", 0);
 
-      
       const slider = d3.select("#yearSlider")
         .attr("min", years[0])
         .attr("max", years[years.length - 1])
@@ -155,7 +326,6 @@
       let sortOrder = "desc";
       let selectedCountry = null;
 
-      
       d3.select(".sex-icon.total").classed("selected", true);
 
       function updatePieChart() {
@@ -443,7 +613,6 @@
       });
       mapSvg.call(zoom);
 
-      
       slider.on("input", function() {
         currentYear = +this.value;
         yearLabel.text(currentYear);
@@ -456,7 +625,6 @@
         updatePieChart();
       });
 
-      
       d3.selectAll(".sex-icon").on("click", function() {
         currentSex = d3.select(this).attr("data-sex");
         d3.selectAll(".sex-icon").classed("selected", false);
@@ -470,7 +638,6 @@
         updatePieChart();
       });
 
-      
       d3.select("#sortDesc").on("click", function() {
         sortOrder = "desc";
         updateBarChart();
